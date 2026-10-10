@@ -103,7 +103,9 @@ public class DocumentFunctions
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
             {
-                if (!section.Headers.TryGetValue(
+                // Safely handle multipart sections with missing headers.
+                if (section.Headers == null ||
+                    !section.Headers.TryGetValue(
                         HeaderNames.ContentDisposition,
                         out var dispositionValues))
                 {
