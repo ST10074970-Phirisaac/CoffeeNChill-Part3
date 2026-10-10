@@ -17,3 +17,29 @@ From the project directory, run `docker build -t isaacphiri/coffeechill-function
 - Added queue extension and storage queue SDK.
 - Added Docker Compose for Azurite and published Docker Hub Functions image.
 - Updated Postman collection with order requests.
+
+## Testing and Verification
+
+### Queue Processing
+- Tested POST /api/orders/queue using Postman.
+- Confirmed valid orders return HTTP 202 Accepted.
+- Verified order statuses: Received -> Preparing -> Ready -> Collected.
+- Confirmed order status is stored in Azure Table Storage.
+
+### Error Handling and Poison Queue
+- Configured maxDequeueCount to 5.
+- Configured visibilityTimeout to 10 seconds.
+- Tested invalid queue message INVALID_ORDER_TEST.
+- Confirmed the failed message moved to order-processing-queue-poison after five attempts.
+- Verified the poison queue contained the failed message.
+
+### Docker Verification
+- Rebuilt and published isaacphiri/coffeechill-functions:v2.0 to Docker Hub.
+- Started Azure Functions and Azurite using Docker Compose.
+- Confirmed both containers were running.
+- Tested order ORD-2026-8804 through the Docker-hosted API.
+- Confirmed HTTP 202 Accepted and final status Collected.
+
+### Security Verification
+- Confirmed local.settings.json and .env are not tracked by Git.
+- Verified the Git working tree was clean before updating documentation.
