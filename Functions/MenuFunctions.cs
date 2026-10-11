@@ -7,15 +7,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 
 namespace CoffeeNChill.Functions.Functions;
 
-public class MenuFunctions
+public abstract class MenuFunctions(MenuTableService menuTableService)
 {
-    private readonly MenuTableService _menuTableService;
-
-    public MenuFunctions(MenuTableService menuTableService)
-    {
-        _menuTableService = menuTableService;
-    }
-
     [Function("CreateMenuItem")]
     public async Task<HttpResponseData> CreateMenuItem(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "menu")]
@@ -48,7 +41,7 @@ public class MenuFunctions
                 return badResponse;
             }
 
-            await _menuTableService.CreateAsync(item);
+            await menuTableService.CreateAsync(item);
 
             var response = req.CreateResponse(HttpStatusCode.Created);
             await response.WriteAsJsonAsync(item);
@@ -74,7 +67,7 @@ public class MenuFunctions
     {
         try
         {
-            var items = await _menuTableService.GetAllAsync();
+            var items = await menuTableService.GetAllAsync();
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(items);
@@ -104,7 +97,7 @@ public class MenuFunctions
     {
         try
         {
-            var items = await _menuTableService.GetByCategoryAsync(category);
+            var items = await menuTableService.GetByCategoryAsync(category);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(items);
@@ -161,7 +154,7 @@ public class MenuFunctions
                 return badResponse;
             }
 
-            var existingItem = await _menuTableService.GetByIdAsync(
+            var existingItem = await menuTableService.GetByIdAsync(
                 category,
                 id);
 
@@ -176,7 +169,7 @@ public class MenuFunctions
                 return notFoundResponse;
             }
 
-            await _menuTableService.UpdateAsync(item);
+            await menuTableService.UpdateAsync(item);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(item);
@@ -207,7 +200,7 @@ public class MenuFunctions
     {
         try
         {
-            var existingItem = await _menuTableService.GetByIdAsync(
+            var existingItem = await menuTableService.GetByIdAsync(
                 category,
                 id);
 
@@ -222,7 +215,7 @@ public class MenuFunctions
                 return notFoundResponse;
             }
 
-            await _menuTableService.DeleteAsync(category, id);
+            await menuTableService.DeleteAsync(category, id);
 
             var response = req.CreateResponse(
                 HttpStatusCode.NoContent);
