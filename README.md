@@ -1,4 +1,4 @@
-﻿# CoffeeNChill Part 2 – Queue Triggers and Docker Compose
+﻿﻿# CoffeeNChill Part 2 – Queue Triggers and Docker Compose
 
 ## Added functionality
 - `POST /api/orders/queue`: validates an order and enqueues JSON to `order-processing-queue` (HTTP 202).
