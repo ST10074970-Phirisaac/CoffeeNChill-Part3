@@ -8,19 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace CoffeeNChill.Functions.Functions;
 
-public class OrderFunctions
+public abstract class OrderFunctions(
+    OrderStorageService storage,
+    ILogger<OrderFunctions> logger)
 {
-    private readonly OrderStorageService _storage;
-    private readonly ILogger<OrderFunctions> _logger;
-
-    public OrderFunctions(
-        OrderStorageService storage,
-        ILogger<OrderFunctions> logger)
-    {
-        _storage = storage;
-        _logger = logger;
-    }
-
     // HTTP endpoint: Submit an order to Azure Queue Storage
     [Function("QueueOrder")]
     public async Task<HttpResponseData> QueueOrder(
@@ -42,7 +33,7 @@ public class OrderFunctions
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 ex,
                 "Order submission rejected: invalid JSON.");
 
@@ -56,7 +47,7 @@ public class OrderFunctions
             order.SelectedItemSKUs.Count == 0 ||
             order.TotalPrice < 0)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Order submission rejected: missing or invalid order fields.");
 
             return req.CreateResponse(HttpStatusCode.BadRequest);
@@ -67,9 +58,9 @@ public class OrderFunctions
             order.OrderTimestamp = DateTimeOffset.UtcNow;
         }
 
-        await _storage.EnqueueAsync(order);
+        await storage.EnqueueAsync(order);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Order {OrderId} successfully added to the processing queue.",
             order.OrderId);
 
@@ -110,7 +101,7 @@ public class OrderFunctions
             }
 
             orderId = order.OrderId;
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Starting queue processing for order {OrderId}.",
                 orderId);
 
@@ -122,20 +113,20 @@ public class OrderFunctions
                 "Collected"
             })
             {
-                await _storage.SaveStatusAsync(order, status);
-                _logger.LogInformation(
+                await storage.SaveStatusAsync(order, status);
+                logger.LogInformation(
                     "Order {OrderId}: {Status}",
                     orderId,
                     status);
             }
 
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Order {OrderId} processed successfully.",
                 orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "Failed to process queued order {OrderId}. " +
                 "Azure Functions will handle retries and poison-queue " +
@@ -159,11 +150,11 @@ public class OrderFunctions
         string date,
         string orderId)
     {
-        var entity = await _storage.GetOrderAsync(date, orderId);
+        var entity = await storage.GetOrderAsync(date, orderId);
 
         if (entity is null)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Order {OrderId} was not found for date {OrderDate}.",
                 orderId,
                 date);
