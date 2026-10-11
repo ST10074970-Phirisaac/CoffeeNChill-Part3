@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Text.Json;
 using CoffeeNChill.Functions.Models;
@@ -94,7 +93,6 @@ public class OrderFunctions
             Connection = "AzureWebJobsStorage")] string message)
     {
         string orderId = "Unknown";
-
         try
         {
             var order = JsonSerializer.Deserialize<Order>(message)
@@ -112,7 +110,6 @@ public class OrderFunctions
             }
 
             orderId = order.OrderId;
-
             _logger.LogInformation(
                 "Starting queue processing for order {OrderId}.",
                 orderId);
@@ -126,7 +123,6 @@ public class OrderFunctions
             })
             {
                 await _storage.SaveStatusAsync(order, status);
-
                 _logger.LogInformation(
                     "Order {OrderId}: {Status}",
                     orderId,
