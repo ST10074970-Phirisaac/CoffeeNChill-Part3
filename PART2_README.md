@@ -12,6 +12,31 @@ Install .NET 8, Azure Functions Core Tools v4, Docker Desktop and Postman. Start
 ## Docker Hub and Docker Compose
 From the project directory, run `docker build -t isaacphiri/coffeechill-functions:v2.0 .` then `docker push isaacphiri/coffeechill-functions:v2.0` after signing into Docker Hub with permission to publish. The Compose file deliberately uses `image:` rather than `build:` for the Functions service to satisfy the rubric. Set the `AZURE_FILES_CONNECTION_STRING` environment variable **privately**, then run `docker compose up -d`. The app should be reachable at `http://localhost:7071/api`. If an older standalone Azurite container already owns ports 10000-10002, stop it before running Compose. For the demo, verify the queue trigger logs with `docker compose logs -f functions` and the Orders table in Azurite.
 
+## Host Configuration (`host.json`)
+The Azure Functions host configuration is configured with queue retry and visibility parameters in `host.json`:
+
+```json
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      },
+      "enableLiveMetricsFilters": true
+    }
+  },
+  "extensions": {
+    "queues": {
+      "maxDequeueCount": 5,
+      "visibilityTimeout": "00:00:10",
+      "batchSize": 1
+    }
+  }
+}
+```
+
 ## Part 2 changelog
 - Added order model, queue producer, queue consumer, Orders table persistence, and status lookup API.
 - Added queue extension and storage queue SDK.
