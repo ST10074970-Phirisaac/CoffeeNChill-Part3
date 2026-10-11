@@ -28,7 +28,7 @@ public class OrderStorageService
         var entity = new TableEntity(order.OrderTimestamp.UtcDateTime.ToString("yyyy-MM-dd"), order.OrderId)
         {
             ["CustomerName"] = order.CustomerName,
-            ["SelectedItemSKUs"] = JsonSerializer.Serialize(order.SelectedItemSKUs),
+            ["SelectedItemSKUs"] = JsonSerializer.Serialize(order.SelectedItemSkUs),
             ["TotalPrice"] = order.TotalPrice,
             ["OrderTimestamp"] = order.OrderTimestamp,
             ["Status"] = status,
