@@ -43,7 +43,7 @@ public abstract class OrderFunctions(
         if (order is null ||
             string.IsNullOrWhiteSpace(order.OrderId) ||
             string.IsNullOrWhiteSpace(order.CustomerName) ||
-            order.SelectedItemSKUs.Count == 0 ||
+            order.SelectedItemSkUs.Count == 0 ||
             order.TotalPrice < 0)
         {
             logger.LogWarning(
@@ -91,8 +91,8 @@ public abstract class OrderFunctions(
 
             if (string.IsNullOrWhiteSpace(order.OrderId) ||
                 string.IsNullOrWhiteSpace(order.CustomerName) ||
-                order.SelectedItemSKUs is null ||
-                order.SelectedItemSKUs.Count == 0 ||
+                order.SelectedItemSkUs is null ||
+                order.SelectedItemSkUs.Count == 0 ||
                 order.TotalPrice < 0)
             {
                 throw new InvalidOperationException(
