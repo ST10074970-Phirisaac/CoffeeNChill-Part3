@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Data.Tables;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
@@ -45,10 +46,43 @@ public class OrderStorageService
     }
 
     public async Task EnqueueAsync(Order order)
+{
+    _logger.LogInformation(
+        "Enqueueing order {OrderId} for customer {CustomerName}.",
+        order.OrderId,
+        order.CustomerName);
+
+    try
     {
         await _queue.CreateIfNotExistsAsync();
         await _queue.SendMessageAsync(JsonSerializer.Serialize(order));
+
+        _logger.LogInformation(
+            "Order {OrderId} enqueued successfully.",
+            order.OrderId);
     }
+    catch (RequestFailedException ex)
+    {
+        _logger.LogError(
+            ex,
+            "Azure Queue Storage request failed while enqueueing order {OrderId}. " +
+            "HttpStatus={HttpStatus}, ErrorCode={ErrorCode}.",
+            order.OrderId,
+            ex.Status,
+            ex.ErrorCode);
+
+        throw;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Unexpected error while enqueueing order {OrderId}.",
+            order.OrderId);
+
+        throw;
+    }
+}
 
     public async Task SaveStatusAsync(Order order, string status)
     {
