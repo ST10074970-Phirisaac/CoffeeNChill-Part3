@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Text.Json;
 using CoffeeNChill.Functions.Models;
@@ -9,19 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace CoffeeNChill.Functions.Functions;
 
-public class OrderFunctions
+public class OrderFunctions(
+    OrderStorageService storage,
+    ILogger<OrderFunctions> logger)
 {
-    private readonly OrderStorageService _storage;
-    private readonly ILogger<OrderFunctions> _logger;
-
-    public OrderFunctions(
-        OrderStorageService storage,
-        ILogger<OrderFunctions> logger)
-    {
-        _storage = storage;
-        _logger = logger;
-    }
-
     // HTTP endpoint: Submit an order to Azure Queue Storage
     [Function("QueueOrder")]
     public async Task<HttpResponseData> QueueOrder(
@@ -43,7 +33,7 @@ public class OrderFunctions
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 ex,
                 "Order submission rejected: invalid JSON.");
 
@@ -53,11 +43,10 @@ public class OrderFunctions
         if (order is null ||
             string.IsNullOrWhiteSpace(order.OrderId) ||
             string.IsNullOrWhiteSpace(order.CustomerName) ||
-            order.SelectedItemSKUs is null ||
-            order.SelectedItemSKUs.Count == 0 ||
+            order.SelectedItemSkUs.Count == 0 ||
             order.TotalPrice < 0)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Order submission rejected: missing or invalid order fields.");
 
             return req.CreateResponse(HttpStatusCode.BadRequest);
@@ -68,14 +57,25 @@ public class OrderFunctions
             order.OrderTimestamp = DateTimeOffset.UtcNow;
         }
 
-        await _storage.EnqueueAsync(order);
+        try
+{
+    await storage.EnqueueAsync(order);
+}
+catch (Exception ex)
+{
+    logger.LogError(
+        ex,
+        "Failed to enqueue order {OrderId}. Returning HTTP 500 to client.",
+        order.OrderId);
 
-        _logger.LogInformation(
-            "Order {OrderId} successfully added to the processing queue.",
-            order.OrderId);
+    return req.CreateResponse(HttpStatusCode.InternalServerError);
+}
 
-        var response = req.CreateResponse(HttpStatusCode.Accepted);
+logger.LogInformation(
+    "Order {OrderId} successfully added to the processing queue.",
+    order.OrderId);
 
+var response = req.CreateResponse(HttpStatusCode.Accepted);
         await response.WriteAsJsonAsync(new
         {
             order.OrderId,
@@ -94,7 +94,6 @@ public class OrderFunctions
             Connection = "AzureWebJobsStorage")] string message)
     {
         string orderId = "Unknown";
-
         try
         {
             var order = JsonSerializer.Deserialize<Order>(message)
@@ -103,8 +102,8 @@ public class OrderFunctions
 
             if (string.IsNullOrWhiteSpace(order.OrderId) ||
                 string.IsNullOrWhiteSpace(order.CustomerName) ||
-                order.SelectedItemSKUs is null ||
-                order.SelectedItemSKUs.Count == 0 ||
+                order.SelectedItemSkUs is null ||
+                order.SelectedItemSkUs.Count == 0 ||
                 order.TotalPrice < 0)
             {
                 throw new InvalidOperationException(
@@ -112,8 +111,7 @@ public class OrderFunctions
             }
 
             orderId = order.OrderId;
-
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Starting queue processing for order {OrderId}.",
                 orderId);
 
@@ -125,21 +123,42 @@ public class OrderFunctions
                 "Collected"
             })
             {
-                await _storage.SaveStatusAsync(order, status);
-
-                _logger.LogInformation(
+                await storage.SaveStatusAsync(order, status);
+                logger.LogInformation(
                     "Order {OrderId}: {Status}",
                     orderId,
                     status);
             }
 
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Order {OrderId} processed successfully.",
                 orderId);
         }
+                catch (JsonException ex)
+        {
+            logger.LogError(
+                ex,
+                "Malformed queue message received for order {OrderId}. " +
+                "The message will be retried and eventually moved to " +
+                "order-processing-queue-poison according to the configured queue settings.",
+                orderId);
+
+            throw;
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(
+                ex,
+                "Invalid order data encountered while processing order {OrderId}. " +
+                "The message will be retried and eventually moved to " +
+                "order-processing-queue-poison according to the configured queue settings.",
+                orderId);
+
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(
+            logger.LogError(
                 ex,
                 "Failed to process queued order {OrderId}. " +
                 "Azure Functions will handle retries and poison-queue " +
@@ -155,19 +174,21 @@ public class OrderFunctions
 
     // HTTP endpoint: Retrieve the latest order status
     [Function("GetOrderStatus")]
-    public async Task<HttpResponseData> GetOrderStatus(
-        [HttpTrigger(
-            AuthorizationLevel.Anonymous,
-            "get",
-            Route = "orders/{date}/{orderId}")] HttpRequestData req,
-        string date,
-        string orderId)
+   public async Task<HttpResponseData> GetOrderStatus(
+    [HttpTrigger(
+        AuthorizationLevel.Anonymous,
+        "get",
+        Route = "orders/{date}/{orderId}")] HttpRequestData req,
+    string date,
+    string orderId)
+{
+    try
     {
-        var entity = await _storage.GetOrderAsync(date, orderId);
+        var entity = await storage.GetOrderAsync(date, orderId);
 
         if (entity is null)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Order {OrderId} was not found for date {OrderDate}.",
                 orderId,
                 date);
@@ -192,4 +213,16 @@ public class OrderFunctions
 
         return response;
     }
+    catch (Exception ex)
+    {
+        logger.LogError(
+            ex,
+            "Failed to retrieve order {OrderId} for date {OrderDate}. " +
+            "Returning HTTP 500 to client.",
+            orderId,
+            date);
+
+        return req.CreateResponse(HttpStatusCode.InternalServerError);
+    }
+}
 }

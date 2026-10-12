@@ -7,15 +7,8 @@ using System.Net;
 
 namespace CoffeeNChill.Functions.Functions;
 
-public class DocumentFunctions
+public abstract class DocumentFunctions(DocumentFileService documentFileService)
 {
-    private readonly DocumentFileService _documentFileService;
-
-    public DocumentFunctions(DocumentFileService documentFileService)
-    {
-        _documentFileService = documentFileService;
-    }
-
     [Function("UploadStaffDocument")]
     public async Task<HttpResponseData> UploadStaffDocument(
         [HttpTrigger(
@@ -99,9 +92,7 @@ public class DocumentFunctions
                 boundary,
                 req.Body);
 
-            MultipartSection? section;
-
-            while ((section = await reader.ReadNextSectionAsync()) != null)
+            while (await reader.ReadNextSectionAsync() is { } section)
             {
                 // Safely handle multipart sections with missing headers.
                 if (section.Headers == null ||
@@ -127,7 +118,7 @@ public class DocumentFunctions
                     continue;
                 }
 
-                if (disposition == null)
+                if (false)
                 {
                     continue;
                 }
@@ -172,7 +163,7 @@ public class DocumentFunctions
 
                 fileName = Path.GetFileName(fileName);
 
-                await _documentFileService.UploadAsync(
+                await documentFileService.UploadAsync(
                     fileName,
                     section.Body);
 
@@ -216,7 +207,7 @@ public class DocumentFunctions
         try
         {
             var files =
-                await _documentFileService.ListAsync();
+                await documentFileService.ListAsync();
 
             var response = req.CreateResponse(
                 HttpStatusCode.OK);
@@ -251,7 +242,7 @@ public class DocumentFunctions
             fileName = Path.GetFileName(fileName);
 
             var stream =
-                await _documentFileService.DownloadAsync(fileName);
+                await documentFileService.DownloadAsync(fileName);
 
             var response = req.CreateResponse(
                 HttpStatusCode.OK);
