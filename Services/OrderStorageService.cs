@@ -85,19 +85,59 @@ public class OrderStorageService
 }
 
     public async Task SaveStatusAsync(Order order, string status)
+{
+    _logger.LogInformation(
+        "Saving status {OrderStatus} for order {OrderId}.",
+        status,
+        order.OrderId);
+
+    try
     {
         await _orders.CreateIfNotExistsAsync();
-        var entity = new TableEntity(order.OrderTimestamp.UtcDateTime.ToString("yyyy-MM-dd"), order.OrderId)
+
+        var entity = new TableEntity(
+            order.OrderTimestamp.UtcDateTime.ToString("yyyy-MM-dd"),
+            order.OrderId)
         {
-            ["CustomerName"] = order.CustomerName,
+            ["CustomerName"]     = order.CustomerName,
             ["SelectedItemSKUs"] = JsonSerializer.Serialize(order.SelectedItemSkUs),
-            ["TotalPrice"] = order.TotalPrice,
-            ["OrderTimestamp"] = order.OrderTimestamp,
-            ["Status"] = status,
-            ["UpdatedAt"] = DateTimeOffset.UtcNow
+            ["TotalPrice"]       = order.TotalPrice,
+            ["OrderTimestamp"]   = order.OrderTimestamp,
+            ["Status"]           = status,
+            ["UpdatedAt"]        = DateTimeOffset.UtcNow
         };
+
         await _orders.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+
+        _logger.LogInformation(
+            "Status {OrderStatus} persisted for order {OrderId}.",
+            status,
+            order.OrderId);
     }
+    catch (RequestFailedException ex)
+    {
+        _logger.LogError(
+            ex,
+            "Azure Table Storage request failed while saving status {OrderStatus} " +
+            "for order {OrderId}. HttpStatus={HttpStatus}, ErrorCode={ErrorCode}.",
+            status,
+            order.OrderId,
+            ex.Status,
+            ex.ErrorCode);
+
+        throw;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Unexpected error while saving status {OrderStatus} for order {OrderId}.",
+            status,
+            order.OrderId);
+
+        throw;
+    }
+}
 
     public async Task<TableEntity?> GetOrderAsync(string date, string orderId)
     {
