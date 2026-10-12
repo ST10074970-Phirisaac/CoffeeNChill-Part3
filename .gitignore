@@ -264,3 +264,6 @@ __pycache__/
 *.pyc
 .env
 __azurite*
+
+# Local Docker Compose override (never commit)
+docker-compose.override.yml
