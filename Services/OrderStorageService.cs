@@ -140,9 +140,52 @@ public class OrderStorageService
 }
 
     public async Task<TableEntity?> GetOrderAsync(string date, string orderId)
+{
+    _logger.LogInformation(
+        "Fetching order {OrderId} for date {OrderDate}.",
+        orderId,
+        date);
+
+    try
     {
         await _orders.CreateIfNotExistsAsync();
+
         var result = await _orders.GetEntityIfExistsAsync<TableEntity>(date, orderId);
-        return result.HasValue ? result.Value : null;
+
+        if (!result.HasValue)
+        {
+            _logger.LogInformation(
+                "Order {OrderId} for date {OrderDate} was not found.",
+                orderId,
+                date);
+
+            return null;
+        }
+
+        return result.Value;
     }
+    catch (RequestFailedException ex)
+    {
+        _logger.LogError(
+            ex,
+            "Azure Table Storage request failed while fetching order {OrderId} " +
+            "for date {OrderDate}. HttpStatus={HttpStatus}, ErrorCode={ErrorCode}.",
+            orderId,
+            date,
+            ex.Status,
+            ex.ErrorCode);
+
+        throw;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Unexpected error while fetching order {OrderId} for date {OrderDate}.",
+            orderId,
+            date);
+
+        throw;
+    }
+}
 }
