@@ -152,13 +152,15 @@ var response = req.CreateResponse(HttpStatusCode.Accepted);
 
     // HTTP endpoint: Retrieve the latest order status
     [Function("GetOrderStatus")]
-    public async Task<HttpResponseData> GetOrderStatus(
-        [HttpTrigger(
-            AuthorizationLevel.Anonymous,
-            "get",
-            Route = "orders/{date}/{orderId}")] HttpRequestData req,
-        string date,
-        string orderId)
+   public async Task<HttpResponseData> GetOrderStatus(
+    [HttpTrigger(
+        AuthorizationLevel.Anonymous,
+        "get",
+        Route = "orders/{date}/{orderId}")] HttpRequestData req,
+    string date,
+    string orderId)
+{
+    try
     {
         var entity = await storage.GetOrderAsync(date, orderId);
 
@@ -189,4 +191,16 @@ var response = req.CreateResponse(HttpStatusCode.Accepted);
 
         return response;
     }
+    catch (Exception ex)
+    {
+        logger.LogError(
+            ex,
+            "Failed to retrieve order {OrderId} for date {OrderDate}. " +
+            "Returning HTTP 500 to client.",
+            orderId,
+            date);
+
+        return req.CreateResponse(HttpStatusCode.InternalServerError);
+    }
+}
 }
