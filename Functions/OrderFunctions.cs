@@ -57,14 +57,25 @@ public abstract class OrderFunctions(
             order.OrderTimestamp = DateTimeOffset.UtcNow;
         }
 
-        await storage.EnqueueAsync(order);
+        try
+{
+    await storage.EnqueueAsync(order);
+}
+catch (Exception ex)
+{
+    logger.LogError(
+        ex,
+        "Failed to enqueue order {OrderId}. Returning HTTP 500 to client.",
+        order.OrderId);
 
-        logger.LogInformation(
-            "Order {OrderId} successfully added to the processing queue.",
-            order.OrderId);
+    return req.CreateResponse(HttpStatusCode.InternalServerError);
+}
 
-        var response = req.CreateResponse(HttpStatusCode.Accepted);
+logger.LogInformation(
+    "Order {OrderId} successfully added to the processing queue.",
+    order.OrderId);
 
+var response = req.CreateResponse(HttpStatusCode.Accepted);
         await response.WriteAsJsonAsync(new
         {
             order.OrderId,
