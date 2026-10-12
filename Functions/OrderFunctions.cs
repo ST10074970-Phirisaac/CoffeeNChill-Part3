@@ -134,6 +134,28 @@ var response = req.CreateResponse(HttpStatusCode.Accepted);
                 "Order {OrderId} processed successfully.",
                 orderId);
         }
+                catch (JsonException ex)
+        {
+            logger.LogError(
+                ex,
+                "Malformed queue message received for order {OrderId}. " +
+                "The message will be retried and eventually moved to " +
+                "order-processing-queue-poison according to the configured queue settings.",
+                orderId);
+
+            throw;
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(
+                ex,
+                "Invalid order data encountered while processing order {OrderId}. " +
+                "The message will be retried and eventually moved to " +
+                "order-processing-queue-poison according to the configured queue settings.",
+                orderId);
+
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(
