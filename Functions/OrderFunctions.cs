@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace CoffeeNChill.Functions.Functions;
 
-public abstract class OrderFunctions(
+public class OrderFunctions(
     OrderStorageService storage,
     ILogger<OrderFunctions> logger)
 {
