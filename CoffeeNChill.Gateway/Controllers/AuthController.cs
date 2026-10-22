@@ -1,8 +1,10 @@
 
 using Azure;
+using System.Security.Claims;
 using CoffeeNChill.Gateway.DTOs;
 using CoffeeNChill.Gateway.Models;
 using CoffeeNChill.Gateway.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,11 +18,15 @@ namespace CoffeeNChill.Gateway.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly JwtTokenService _jwtTokenService;
     private readonly PasswordHasher<UserEntity> _passwordHasher = new();
 
-    public AuthController(IUserService userService)
+    public AuthController(
+        IUserService userService,
+        JwtTokenService jwtTokenService)
     {
         _userService = userService;
+        _jwtTokenService = jwtTokenService;
     }
 
     /// <summary>
@@ -29,6 +35,7 @@ public class AuthController : ControllerBase
     /// <response code="201">Customer registered successfully.</response>
     /// <response code="400">Invalid registration details.</response>
     /// <response code="409">Email address is already registered.</response>
+    [AllowAnonymous]
     [HttpPost("register")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -75,6 +82,81 @@ public class AuthController : ControllerBase
             FullName = user.FullName,
             Email = user.RowKey,
             Role = user.PartitionKey
+        });
+    }
+
+    /// <summary>
+    /// Authenticates a user and returns a signed JWT token.
+    /// </summary>
+    /// <response code="200">Login successful.</response>
+    /// <response code="400">Invalid login details.</response>
+    /// <response code="401">Invalid email or password.</response>
+    [AllowAnonymous]
+    [HttpPost("login")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequestDto request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var user = await _userService.GetByEmailAsync(email);
+
+        if (user == null)
+        {
+            return Unauthorized(new
+            {
+                Message = "Invalid email or password."
+            });
+        }
+
+        var passwordResult =
+            _passwordHasher.VerifyHashedPassword(
+                user,
+                user.PasswordHash,
+                request.Password);
+
+        if (passwordResult == PasswordVerificationResult.Failed)
+        {
+            return Unauthorized(new
+            {
+                Message = "Invalid email or password."
+            });
+        }
+
+        var token = _jwtTokenService.GenerateToken(user);
+
+        return Ok(new
+        {
+            Message = "Login successful.",
+            Token = token,
+            TokenType = "Bearer",
+            ExpiresIn = 7200,
+            FullName = user.FullName,
+            Email = user.RowKey,
+            Role = user.PartitionKey
+        });
+    }
+
+    /// <summary>
+    /// Returns information about the authenticated user.
+    /// Requires a valid JWT bearer token.
+    /// </summary>
+    /// <response code="200">User authenticated successfully.</response>
+    /// <response code="401">Missing or invalid authentication token.</response>
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public IActionResult GetCurrentUser()
+    {
+        return Ok(new
+        {
+            Message = "Authenticated successfully.",
+            FullName = User.FindFirst(ClaimTypes.Name)?.Value,
+            Email = User.FindFirst(ClaimTypes.Email)?.Value,
+            Role = User.FindFirst(ClaimTypes.Role)?.Value
         });
     }
 }
