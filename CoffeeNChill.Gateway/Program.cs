@@ -1,10 +1,14 @@
 
 using Microsoft.OpenApi.Models;
+using CoffeeNChill.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Register API controllers
 builder.Services.AddControllers();
+
+// Register Azure Table Storage user service
+builder.Services.AddScoped<IUserService, AzureTableUserService>();
 
 // Configure Swagger/OpenAPI documentation
 builder.Services.AddEndpointsApiExplorer();
@@ -37,10 +41,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Middleware
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+// Map API endpoints
 app.MapControllers();
 
 app.Run();
