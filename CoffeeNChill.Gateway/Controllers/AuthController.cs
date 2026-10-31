@@ -37,9 +37,15 @@ public class AuthController : ControllerBase
     /// <response code="409">Email address is already registered.</response>
     [AllowAnonymous]
     [HttpPost("register")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(
+        typeof(RegisterResponseDto),
+        StatusCodes.Status201Created)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ErrorResponseDto),
+        StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterRequestDto request)
     {
@@ -47,7 +53,7 @@ public class AuthController : ControllerBase
 
         if (await _userService.EmailExistsAsync(email))
         {
-            return Conflict(new
+            return Conflict(new ErrorResponseDto
             {
                 Message = "Email address is already registered."
             });
@@ -70,19 +76,21 @@ public class AuthController : ControllerBase
         }
         catch (RequestFailedException ex) when (ex.Status == 409)
         {
-            return Conflict(new
+            return Conflict(new ErrorResponseDto
             {
                 Message = "Email address is already registered."
             });
         }
 
-        return StatusCode(StatusCodes.Status201Created, new
-        {
-            Message = "Customer registered successfully.",
-            FullName = user.FullName,
-            Email = user.RowKey,
-            Role = user.PartitionKey
-        });
+        return StatusCode(
+            StatusCodes.Status201Created,
+            new RegisterResponseDto
+            {
+                Message = "Customer registered successfully.",
+                FullName = user.FullName,
+                Email = user.RowKey,
+                Role = user.PartitionKey
+            });
     }
 
     /// <summary>
@@ -93,9 +101,15 @@ public class AuthController : ControllerBase
     /// <response code="401">Invalid email or password.</response>
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        typeof(LoginResponseDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ErrorResponseDto),
+        StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequestDto request)
     {
@@ -105,7 +119,7 @@ public class AuthController : ControllerBase
 
         if (user == null)
         {
-            return Unauthorized(new
+            return Unauthorized(new ErrorResponseDto
             {
                 Message = "Invalid email or password."
             });
@@ -119,7 +133,7 @@ public class AuthController : ControllerBase
 
         if (passwordResult == PasswordVerificationResult.Failed)
         {
-            return Unauthorized(new
+            return Unauthorized(new ErrorResponseDto
             {
                 Message = "Invalid email or password."
             });
@@ -127,7 +141,7 @@ public class AuthController : ControllerBase
 
         var token = _jwtTokenService.GenerateToken(user);
 
-        return Ok(new
+        return Ok(new LoginResponseDto
         {
             Message = "Login successful.",
             Token = token,
@@ -147,11 +161,14 @@ public class AuthController : ControllerBase
     /// <response code="401">Missing or invalid authentication token.</response>
     [Authorize]
     [HttpGet("me")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        typeof(CurrentUserResponseDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
     {
-        return Ok(new
+        return Ok(new CurrentUserResponseDto
         {
             Message = "Authenticated successfully.",
             FullName = User.FindFirst(ClaimTypes.Name)?.Value,
