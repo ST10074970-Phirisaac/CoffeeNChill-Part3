@@ -15,6 +15,25 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IUserService, AzureTableUserService>();
 builder.Services.AddScoped<JwtTokenService>();
 
+// Configure HTTP client for Azure Functions
+builder.Services.AddHttpClient("AzureFunctions", client =>
+{
+    var baseUrl = builder.Configuration["AzureFunctions:BaseUrl"]
+        ?? throw new InvalidOperationException(
+            "Azure Functions BaseUrl is not configured.");
+
+    if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != Uri.UriSchemeHttp &&
+         uri.Scheme != Uri.UriSchemeHttps))
+    {
+        throw new InvalidOperationException(
+            "Azure Functions BaseUrl must be a valid HTTP or HTTPS URL.");
+    }
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // Configure JWT authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException(
