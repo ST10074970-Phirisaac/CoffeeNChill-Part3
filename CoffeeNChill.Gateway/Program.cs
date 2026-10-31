@@ -1,6 +1,7 @@
 
 using System.Security.Claims;
 using System.Text;
+using CoffeeNChill.Gateway.Middleware;
 using CoffeeNChill.Gateway.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -134,6 +135,10 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Global exception-handling middleware
+// Catches unexpected errors and returns a consistent JSON response.
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Enable Swagger for local development
 if (app.Environment.IsDevelopment())
