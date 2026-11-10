@@ -1,5 +1,5 @@
-
 using System.Net;
+using CoffeeNChill.Gateway.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +7,7 @@ namespace CoffeeNChill.Gateway.Controllers;
 
 [ApiController]
 [Route("api/documents")]
-[Authorize(Roles = "Staff,Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class DocumentsController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
@@ -18,6 +18,9 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListDocuments()
     {
         var client = _httpClientFactory.CreateClient("AzureFunctions");
@@ -44,37 +47,37 @@ public class DocumentsController : ControllerBase
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> UploadDocument(
-        IFormFile file)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UploadDocument(IFormFile file)
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new
+            return BadRequest(new ErrorResponseDto
             {
-                message = "Please select a file."
+                Message = "Please select a file."
             });
         }
 
         if (file.Length > 10 * 1024 * 1024)
         {
-            return BadRequest(new
+            return BadRequest(new ErrorResponseDto
             {
-                message = "File must not exceed 10 MB."
+                Message = "File must not exceed 10 MB."
             });
         }
 
         var client = _httpClientFactory.CreateClient("AzureFunctions");
-
         using var form = new MultipartFormDataContent();
         await using var stream = file.OpenReadStream();
-
         using var fileContent = new StreamContent(stream);
 
         if (!string.IsNullOrWhiteSpace(file.ContentType))
         {
             fileContent.Headers.ContentType =
-                new System.Net.Http.Headers.MediaTypeHeaderValue(
-                    file.ContentType);
+                new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
         }
 
         form.Add(fileContent, "file", Path.GetFileName(file.FileName));
@@ -100,6 +103,10 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("download/{fileName}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadDocument(string fileName)
     {
         var client = _httpClientFactory.CreateClient("AzureFunctions");
@@ -107,15 +114,14 @@ public class DocumentsController : ControllerBase
         try
         {
             using var response = await client.GetAsync(
-                "api/documents/download/" +
-                Uri.EscapeDataString(fileName),
+                "api/documents/download/" + Uri.EscapeDataString(fileName),
                 HttpContext.RequestAborted);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                return NotFound(new
+                return NotFound(new ErrorResponseDto
                 {
-                    message = "Document not found."
+                    Message = "Document not found."
                 });
             }
 
@@ -143,8 +149,48 @@ public class DocumentsController : ControllerBase
         }
     }
 
-    private async Task<IActionResult> ForwardResponseAsync(
-        HttpResponseMessage response)
+    [HttpDelete("{fileName}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocument(string fileName)
+    {
+        var client = _httpClientFactory.CreateClient("AzureFunctions");
+
+        try
+        {
+            using var response = await client.DeleteAsync(
+                "api/documents/" + Uri.EscapeDataString(fileName),
+                HttpContext.RequestAborted);
+
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                return NoContent();
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return NotFound(new ErrorResponseDto
+                {
+                    Message = "Document not found."
+                });
+            }
+
+            return await ForwardResponseAsync(response);
+        }
+        catch (HttpRequestException)
+        {
+            return BadGateway();
+        }
+        catch (OperationCanceledException)
+            when (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return GatewayTimeout();
+        }
+    }
+
+    private async Task<IActionResult> ForwardResponseAsync(HttpResponseMessage response)
     {
         var content = await response.Content.ReadAsStringAsync(
             HttpContext.RequestAborted);
@@ -159,14 +205,14 @@ public class DocumentsController : ControllerBase
     }
 
     private IActionResult BadGateway() =>
-        StatusCode(502, new
+        StatusCode(502, new ErrorResponseDto
         {
-            message = "Azure Functions service is unavailable."
+            Message = "Azure Functions service is unavailable."
         });
 
     private IActionResult GatewayTimeout() =>
-        StatusCode(504, new
+        StatusCode(504, new ErrorResponseDto
         {
-            message = "Azure Functions service timed out."
+            Message = "Azure Functions service timed out."
         });
 }

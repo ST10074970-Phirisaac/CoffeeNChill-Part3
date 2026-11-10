@@ -1,7 +1,7 @@
-
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using CoffeeNChill.Gateway.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +21,8 @@ public class MenuController : ControllerBase
     // Public: view all menu items
     [HttpGet]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(IEnumerable<MenuItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status502BadGateway)]
     public Task<IActionResult> GetAll()
     {
         return ForwardAsync(HttpMethod.Get, "api/menu");
@@ -29,6 +31,7 @@ public class MenuController : ControllerBase
     // Public: view menu items by category
     [HttpGet("category/{category}")]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(IEnumerable<MenuItemDto>), StatusCodes.Status200OK)]
     public Task<IActionResult> GetByCategory(string category)
     {
         return ForwardAsync(
@@ -38,19 +41,27 @@ public class MenuController : ControllerBase
 
     // Staff/Admin: create menu items
     [HttpPost]
-    [Authorize(Roles = "Staff,Admin")]
-    public Task<IActionResult> Create([FromBody] JsonElement item)
+    [Authorize(Roles = "Admin,Staff")]
+    [ProducesResponseType(typeof(MenuItemDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> Create([FromBody] MenuItemDto item)
     {
         return ForwardAsync(HttpMethod.Post, "api/menu", item);
     }
 
     // Staff/Admin: update menu items
     [HttpPut("{category}/{id}")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Roles = "Admin,Staff")]
+    [ProducesResponseType(typeof(MenuItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> Update(
         string category,
         string id,
-        [FromBody] JsonElement item)
+        [FromBody] UpdateMenuItemDto item)
     {
         return ForwardAsync(
             HttpMethod.Put,
@@ -60,7 +71,11 @@ public class MenuController : ControllerBase
 
     // Staff/Admin: delete menu items
     [HttpDelete("{category}/{id}")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Roles = "Admin,Staff")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<IActionResult> Delete(string category, string id)
     {
         return ForwardAsync(
@@ -71,17 +86,15 @@ public class MenuController : ControllerBase
     private async Task<IActionResult> ForwardAsync(
         HttpMethod method,
         string path,
-        JsonElement? body = null)
+        object? body = null)
     {
-        var client =
-            _httpClientFactory.CreateClient("AzureFunctions");
-
+        var client = _httpClientFactory.CreateClient("AzureFunctions");
         using var request = new HttpRequestMessage(method, path);
 
-        if (body.HasValue)
+        if (body is not null)
         {
             request.Content = new StringContent(
-                body.Value.GetRawText(),
+                JsonSerializer.Serialize(body),
                 Encoding.UTF8,
                 "application/json");
         }
@@ -103,7 +116,7 @@ public class MenuController : ControllerBase
 
             var contentType =
                 response.Content.Headers.ContentType?.ToString()
-                ?? "text/plain";
+                ?? "application/json";
 
             return new ContentResult
             {
@@ -114,7 +127,7 @@ public class MenuController : ControllerBase
         }
         catch (HttpRequestException)
         {
-            return StatusCode(502, new
+            return StatusCode(502, new ErrorResponseDto
             {
                 Message = "Azure Functions service is unavailable."
             });
@@ -122,7 +135,7 @@ public class MenuController : ControllerBase
         catch (OperationCanceledException)
             when (!HttpContext.RequestAborted.IsCancellationRequested)
         {
-            return StatusCode(504, new
+            return StatusCode(504, new ErrorResponseDto
             {
                 Message = "Azure Functions service timed out."
             });

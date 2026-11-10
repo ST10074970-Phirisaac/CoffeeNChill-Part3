@@ -1,4 +1,3 @@
-
 using System.Security.Claims;
 using System.Text;
 using CoffeeNChill.Gateway.Middleware;
@@ -140,14 +139,14 @@ var app = builder.Build();
 // Catches unexpected errors and returns a consistent JSON response.
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// Enable Swagger for local development
+// Enable Swagger in all environments (including Linux VPS deployment)
+app.UseSwagger();
+app.UseSwaggerUI();
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 
 // Authentication must run before authorization
 app.UseAuthentication();

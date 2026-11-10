@@ -1,4 +1,3 @@
-
 using Azure;
 using System.Security.Claims;
 using CoffeeNChill.Gateway.DTOs;
@@ -37,17 +36,10 @@ public class AuthController : ControllerBase
     /// <response code="409">Email address is already registered.</response>
     [AllowAnonymous]
     [HttpPost("register")]
-    [ProducesResponseType(
-        typeof(RegisterResponseDto),
-        StatusCodes.Status201Created)]
-    [ProducesResponseType(
-        typeof(ValidationProblemDetails),
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        typeof(ErrorResponseDto),
-        StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Register(
-        [FromBody] RegisterRequestDto request)
+    [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
 
@@ -59,16 +51,26 @@ public class AuthController : ControllerBase
             });
         }
 
+        var role = string.IsNullOrWhiteSpace(request.Role)
+            ? "Customer"
+            : request.Role.Trim();
+
+        role = role.ToLowerInvariant() switch
+        {
+            "admin" => "Admin",
+            "staff" => "Staff",
+            _ => "Customer"
+        };
+
         var user = new UserEntity
         {
-            PartitionKey = "Customer",
+            PartitionKey = role,
             RowKey = email,
             FullName = request.FullName.Trim(),
             CreatedDate = DateTimeOffset.UtcNow
         };
 
-        user.PasswordHash =
-            _passwordHasher.HashPassword(user, request.Password);
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
         try
         {
@@ -86,7 +88,7 @@ public class AuthController : ControllerBase
             StatusCodes.Status201Created,
             new RegisterResponseDto
             {
-                Message = "Customer registered successfully.",
+                Message = "User registered successfully.",
                 FullName = user.FullName,
                 Email = user.RowKey,
                 Role = user.PartitionKey
@@ -101,20 +103,12 @@ public class AuthController : ControllerBase
     /// <response code="401">Invalid email or password.</response>
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(
-        typeof(LoginResponseDto),
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        typeof(ValidationProblemDetails),
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        typeof(ErrorResponseDto),
-        StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login(
-        [FromBody] LoginRequestDto request)
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
-
         var user = await _userService.GetByEmailAsync(email);
 
         if (user == null)
@@ -125,11 +119,10 @@ public class AuthController : ControllerBase
             });
         }
 
-        var passwordResult =
-            _passwordHasher.VerifyHashedPassword(
-                user,
-                user.PasswordHash,
-                request.Password);
+        var passwordResult = _passwordHasher.VerifyHashedPassword(
+            user,
+            user.PasswordHash,
+            request.Password);
 
         if (passwordResult == PasswordVerificationResult.Failed)
         {
@@ -161,11 +154,8 @@ public class AuthController : ControllerBase
     /// <response code="401">Missing or invalid authentication token.</response>
     [Authorize]
     [HttpGet("me")]
-    [ProducesResponseType(
-        typeof(CurrentUserResponseDto),
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(CurrentUserResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
     {
         return Ok(new CurrentUserResponseDto

@@ -1,5 +1,4 @@
-﻿using Azure;
-using Azure.Storage.Files.Shares;
+﻿using Azure.Storage.Files.Shares;
 using Azure.Storage.Files.Shares.Models;
 
 namespace CoffeeNChill.Functions.Services;
@@ -30,28 +29,20 @@ public class DocumentFileService
         string fileName,
         Stream fileStream)
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
-
-        var fileClient =
-            rootDirectory.GetFileClient(fileName);
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
 
         using var memoryStream = new MemoryStream();
-
         await fileStream.CopyToAsync(memoryStream);
-
         memoryStream.Position = 0;
 
         await fileClient.CreateAsync(memoryStream.Length);
-
         await fileClient.UploadAsync(memoryStream);
     }
 
     public async Task<List<ShareFileItem>> ListAsync()
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
-
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
         var files = new List<ShareFileItem>();
 
         await foreach (var item in rootDirectory.GetFilesAndDirectoriesAsync())
@@ -67,21 +58,24 @@ public class DocumentFileService
 
     public async Task<Stream> DownloadAsync(string fileName)
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
 
-        var fileClient =
-            rootDirectory.GetFileClient(fileName);
-
-        var download =
-            await fileClient.DownloadAsync();
+        var download = await fileClient.DownloadAsync();
 
         var memoryStream = new MemoryStream();
-
         await download.Value.Content.CopyToAsync(memoryStream);
-
         memoryStream.Position = 0;
 
         return memoryStream;
+    }
+
+    public async Task<bool> DeleteAsync(string fileName)
+    {
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
+
+        var response = await fileClient.DeleteIfExistsAsync();
+        return response.Value;
     }
 }

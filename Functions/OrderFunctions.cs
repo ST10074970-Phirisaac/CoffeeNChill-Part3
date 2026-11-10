@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Text.Json;
 using CoffeeNChill.Functions.Models;
@@ -31,7 +30,6 @@ public class OrderFunctions
             Route = "orders/queue")] HttpRequestData req)
     {
         Order? order;
-
         try
         {
             order = await JsonSerializer.DeserializeAsync<Order>(
@@ -43,10 +41,7 @@ public class OrderFunctions
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Order submission rejected: invalid JSON.");
-
+            _logger.LogWarning(ex, "Order submission rejected: invalid JSON.");
             return req.CreateResponse(HttpStatusCode.BadRequest);
         }
 
@@ -57,9 +52,7 @@ public class OrderFunctions
             order.SelectedItemSKUs.Count == 0 ||
             order.TotalPrice < 0)
         {
-            _logger.LogWarning(
-                "Order submission rejected: missing or invalid order fields.");
-
+            _logger.LogWarning("Order submission rejected: missing or invalid order fields.");
             return req.CreateResponse(HttpStatusCode.BadRequest);
         }
 
@@ -75,14 +68,12 @@ public class OrderFunctions
             order.OrderId);
 
         var response = req.CreateResponse(HttpStatusCode.Accepted);
-
         await response.WriteAsJsonAsync(new
         {
             order.OrderId,
             status = "Queued",
             message = "Order accepted for asynchronous processing"
         });
-
         return response;
     }
 
@@ -98,8 +89,7 @@ public class OrderFunctions
         try
         {
             var order = JsonSerializer.Deserialize<Order>(message)
-                ?? throw new InvalidOperationException(
-                    "Queue message does not contain an order.");
+                ?? throw new InvalidOperationException("Queue message does not contain an order.");
 
             if (string.IsNullOrWhiteSpace(order.OrderId) ||
                 string.IsNullOrWhiteSpace(order.CustomerName) ||
@@ -107,35 +97,20 @@ public class OrderFunctions
                 order.SelectedItemSKUs.Count == 0 ||
                 order.TotalPrice < 0)
             {
-                throw new InvalidOperationException(
-                    "Queue message contains invalid order data.");
+                throw new InvalidOperationException("Queue message contains invalid order data.");
             }
 
             orderId = order.OrderId;
 
-            _logger.LogInformation(
-                "Starting queue processing for order {OrderId}.",
-                orderId);
+            _logger.LogInformation("Starting queue processing for order {OrderId}.", orderId);
 
-            foreach (var status in new[]
-            {
-                "Received",
-                "Preparing",
-                "Ready",
-                "Collected"
-            })
+            foreach (var status in new[] { "Received", "Preparing", "Ready", "Collected" })
             {
                 await _storage.SaveStatusAsync(order, status);
-
-                _logger.LogInformation(
-                    "Order {OrderId}: {Status}",
-                    orderId,
-                    status);
+                _logger.LogInformation("Order {OrderId}: {Status}", orderId, status);
             }
 
-            _logger.LogInformation(
-                "Order {OrderId} processed successfully.",
-                orderId);
+            _logger.LogInformation("Order {OrderId} processed successfully.", orderId);
         }
         catch (Exception ex)
         {
@@ -164,19 +139,16 @@ public class OrderFunctions
         string orderId)
     {
         var entity = await _storage.GetOrderAsync(date, orderId);
-
         if (entity is null)
         {
             _logger.LogWarning(
                 "Order {OrderId} was not found for date {OrderDate}.",
                 orderId,
                 date);
-
             return req.CreateResponse(HttpStatusCode.NotFound);
         }
 
         var response = req.CreateResponse(HttpStatusCode.OK);
-
         await response.WriteAsJsonAsync(new
         {
             OrderId = entity.RowKey,
@@ -189,7 +161,73 @@ public class OrderFunctions
             TotalPrice = entity.GetDouble("TotalPrice"),
             UpdatedAt = entity.GetDateTimeOffset("UpdatedAt")
         });
+        return response;
+    }
 
+    [Function("UpdateOrderStatus")]
+    public async Task<HttpResponseData> UpdateOrderStatus(
+        [HttpTrigger(
+            AuthorizationLevel.Anonymous,
+            "put",
+            Route = "orders/status")] HttpRequestData req)
+    {
+        UpdateOrderStatusRequest? updateRequest;
+        try
+        {
+            updateRequest = await JsonSerializer.DeserializeAsync<UpdateOrderStatusRequest>(
+                req.Body,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Order status update rejected: invalid JSON.");
+            return req.CreateResponse(HttpStatusCode.BadRequest);
+        }
+
+        if (updateRequest is null ||
+            string.IsNullOrWhiteSpace(updateRequest.OrderDate) ||
+            string.IsNullOrWhiteSpace(updateRequest.OrderId) ||
+            string.IsNullOrWhiteSpace(updateRequest.Status))
+        {
+            var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+            await badResponse.WriteAsJsonAsync(new
+            {
+                message = "OrderDate, OrderId, and Status are required."
+            });
+            return badResponse;
+        }
+
+        var updatedEntity = await _storage.UpdateStatusAsync(
+            updateRequest.OrderDate.Trim(),
+            updateRequest.OrderId.Trim(),
+            updateRequest.Status.Trim());
+
+        if (updatedEntity is null)
+        {
+            var notFound = req.CreateResponse(HttpStatusCode.NotFound);
+            await notFound.WriteAsJsonAsync(new
+            {
+                message = "Order not found."
+            });
+            return notFound;
+        }
+
+        _logger.LogInformation(
+            "Order {OrderId} status updated to {Status}.",
+            updateRequest.OrderId,
+            updateRequest.Status);
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new
+        {
+            OrderId = updatedEntity.RowKey,
+            OrderDate = updatedEntity.PartitionKey,
+            Status = updatedEntity.GetString("Status"),
+            UpdatedAt = updatedEntity.GetDateTimeOffset("UpdatedAt")
+        });
         return response;
     }
 }

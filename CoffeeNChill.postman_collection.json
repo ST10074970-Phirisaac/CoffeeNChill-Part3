@@ -1,14 +1,22 @@
 {
   "info": {
-    "_postman_id": "coffee-n-chill-part1",
-    "name": "CoffeeNChill Functions - Parts 1 and 2",
-    "description": "Postman collection for the CoffeeNChill Azure Functions Part 1 project.",
+    "_postman_id": "coffee-n-chill-part3",
+    "name": "CoffeeNChill API Gateway & Functions",
+    "description": "Postman collection for the CoffeeNChill API Gateway (Auth/RBAC, Menu, Orders, and Staff Documents). Use http://localhost:5197/api locally or http://<vps-ip>:5000/api for the live VPS demo.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:7071/api"
+      "value": "http://localhost:5197/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
     },
     {
       "key": "category",
@@ -33,6 +41,239 @@
   ],
   "item": [
     {
+      "name": "AUTH & RBAC",
+      "item": [
+        {
+          "name": "1 - Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Jane Customer\",\n  \"email\": \"customer@coffeenchill.com\",\n  \"password\": \"Password123!\",\n  \"role\": \"Customer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2 - Register Staff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Taahir Staff\",\n  \"email\": \"staff@coffeenchill.com\",\n  \"password\": \"Password123!\",\n  \"role\": \"Staff\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3 - Login Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "    pm.collectionVariables.set(\"customerToken\", jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@coffeenchill.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4 - Customer Rejected on Staff Endpoint (403 Forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Customer token is rejected with 403 Forbidden on Staff-only endpoint\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partitionKey\": \"HotDrinks\",\n  \"rowKey\": \"coffee999\",\n  \"name\": \"Unauthorized Espresso\",\n  \"description\": \"Should be rejected with 403 Forbidden\",\n  \"price\": 30.00,\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/menu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "menu"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5 - Login Staff (Saves {{token}})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff@coffeenchill.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6 - Get Current User (/api/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "MENU",
       "item": [
         {
@@ -43,6 +284,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
             "body": {
@@ -107,6 +352,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
             "body": {
@@ -135,7 +384,12 @@
           "name": "5 - Delete Menu Item",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/menu/{{category}}/{{id}}",
               "host": [
@@ -158,7 +412,12 @@
           "name": "6 - Upload Staff Document",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -185,7 +444,12 @@
           "name": "7 - List Staff Documents",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/documents",
               "host": [
@@ -201,7 +465,12 @@
           "name": "8 - Download Staff Document",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/documents/download/{{fileName}}",
               "host": [
@@ -214,14 +483,36 @@
               ]
             }
           }
+        },
+        {
+          "name": "9 - Delete Staff Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{fileName}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{fileName}}"
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "PART 2 - ORDERS",
+      "name": "ORDERS",
       "item": [
         {
-          "name": "9 - Queue Order",
+          "name": "10 - Queue Order",
           "request": {
             "method": "POST",
             "header": [
@@ -230,7 +521,6 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/orders/queue",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"OrderId\": \"ORD-2026-8801\",\n  \"CustomerName\": \"Jane Smith\",\n  \"SelectedItemSKUs\": [\n    \"COF-001\",\n    \"PAS-104\"\n  ],\n  \"TotalPrice\": 65.0,\n  \"OrderTimestamp\": \"2026-10-10T10:15:00Z\"\n}",
@@ -239,15 +529,70 @@
                   "language": "json"
                 }
               }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/queue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "queue"
+              ]
             }
           }
         },
         {
-          "name": "10 - Check Order Status",
+          "name": "11 - Check Order Status",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/orders/{{orderDate}}/{{orderId}}"
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderDate}}/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderDate}}",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "12 - Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderDate\": \"{{orderDate}}\",\n  \"orderId\": \"{{orderId}}\",\n  \"status\": \"Ready\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "status"
+              ]
+            }
           }
         }
       ]

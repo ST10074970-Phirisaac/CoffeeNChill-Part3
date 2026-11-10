@@ -8,3 +8,10 @@ public class Order
     public double TotalPrice { get; set; }
     public DateTimeOffset OrderTimestamp { get; set; }
 }
+
+public class UpdateOrderStatusRequest
+{
+    public string OrderDate { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}
