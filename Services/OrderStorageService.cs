@@ -1,3 +1,5 @@
+
+using Azure;
 using Azure.Data.Tables;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
@@ -10,36 +12,96 @@ public class OrderStorageService
 {
     private readonly QueueClient _queue;
     private readonly TableClient _orders;
+
     public OrderStorageService()
     {
-        var connection = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
-            ?? throw new InvalidOperationException("AzureWebJobsStorage is missing.");
-        _queue = new QueueClient(connection, "order-processing-queue", new QueueClientOptions { MessageEncoding = QueueMessageEncoding.Base64 });
+        var connection =
+            Environment.GetEnvironmentVariable("AzureWebJobsStorage")
+            ?? throw new InvalidOperationException(
+                "AzureWebJobsStorage is missing.");
+
+        _queue = new QueueClient(
+            connection,
+            "order-processing-queue",
+            new QueueClientOptions
+            {
+                MessageEncoding = QueueMessageEncoding.Base64
+            });
+
         _orders = new TableClient(connection, "Orders");
     }
+
     public async Task EnqueueAsync(Order order)
     {
         await _queue.CreateIfNotExistsAsync();
-        await _queue.SendMessageAsync(JsonSerializer.Serialize(order));
+
+        await _queue.SendMessageAsync(
+            JsonSerializer.Serialize(order));
     }
+
     public async Task SaveStatusAsync(Order order, string status)
     {
         await _orders.CreateIfNotExistsAsync();
-        var entity = new TableEntity(order.OrderTimestamp.UtcDateTime.ToString("yyyy-MM-dd"), order.OrderId)
+
+        var entity = new TableEntity(
+            order.OrderTimestamp.UtcDateTime.ToString("yyyy-MM-dd"),
+            order.OrderId)
         {
             ["CustomerName"] = order.CustomerName,
-            ["SelectedItemSKUs"] = JsonSerializer.Serialize(order.SelectedItemSKUs),
+            ["SelectedItemSKUs"] =
+                JsonSerializer.Serialize(order.SelectedItemSKUs),
             ["TotalPrice"] = order.TotalPrice,
             ["OrderTimestamp"] = order.OrderTimestamp,
             ["Status"] = status,
             ["UpdatedAt"] = DateTimeOffset.UtcNow
         };
-        await _orders.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+
+        await _orders.UpsertEntityAsync(
+            entity,
+            TableUpdateMode.Replace);
     }
-    public async Task<TableEntity?> GetOrderAsync(string date, string orderId)
+
+    public async Task<TableEntity?> GetOrderAsync(
+        string date,
+        string orderId)
     {
         await _orders.CreateIfNotExistsAsync();
-        var result = await _orders.GetEntityIfExistsAsync<TableEntity>(date, orderId);
+
+        var result =
+            await _orders.GetEntityIfExistsAsync<TableEntity>(
+                date,
+                orderId);
+
         return result.HasValue ? result.Value : null;
+    }
+
+    public async Task<bool> UpdateStatusAsync(
+        string date,
+        string orderId,
+        string status)
+    {
+        await _orders.CreateIfNotExistsAsync();
+
+        var result =
+            await _orders.GetEntityIfExistsAsync<TableEntity>(
+                date,
+                orderId);
+
+        if (!result.HasValue || result.Value is null)
+        {
+            return false;
+        }
+
+        var entity = result.Value;
+
+        entity["Status"] = status;
+        entity["UpdatedAt"] = DateTimeOffset.UtcNow;
+
+        await _orders.UpdateEntityAsync(
+            entity,
+            ETag.All,
+            TableUpdateMode.Merge);
+
+        return true;
     }
 }

@@ -1,4 +1,5 @@
-﻿using CoffeeNChill.Functions.Services;
+﻿
+using CoffeeNChill.Functions.Services;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
 using Microsoft.Azure.Functions.Worker;
@@ -16,6 +17,7 @@ public class DocumentFunctions
         _documentFileService = documentFileService;
     }
 
+    // POST /api/documents/upload
     [Function("UploadStaffDocument")]
     public async Task<HttpResponseData> UploadStaffDocument(
         [HttpTrigger(
@@ -103,7 +105,6 @@ public class DocumentFunctions
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
             {
-                // Safely handle multipart sections with missing headers.
                 if (section.Headers == null ||
                     !section.Headers.TryGetValue(
                         HeaderNames.ContentDisposition,
@@ -140,7 +141,7 @@ public class DocumentFunctions
                 }
 
                 var fieldName =
-                    disposition.Name.ToString();
+                    disposition.Name.ToString().Trim('"');
 
                 if (!string.Equals(
                         fieldName,
@@ -159,6 +160,9 @@ public class DocumentFunctions
                         disposition.FileNameStar.ToString();
                 }
 
+                fileName = Path.GetFileName(
+                    fileName.Trim('"'));
+
                 if (string.IsNullOrWhiteSpace(fileName))
                 {
                     var response = req.CreateResponse(
@@ -169,8 +173,6 @@ public class DocumentFunctions
 
                     return response;
                 }
-
-                fileName = Path.GetFileName(fileName);
 
                 await _documentFileService.UploadAsync(
                     fileName,
@@ -193,18 +195,19 @@ public class DocumentFunctions
 
             return noFileResponse;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             var response = req.CreateResponse(
                 HttpStatusCode.InternalServerError);
 
             await response.WriteStringAsync(
-                $"Error uploading document: {ex.Message}");
+                "Error uploading document.");
 
             return response;
         }
     }
 
+    // GET /api/documents
     [Function("ListStaffDocuments")]
     public async Task<HttpResponseData> ListStaffDocuments(
         [HttpTrigger(
@@ -225,18 +228,19 @@ public class DocumentFunctions
 
             return response;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             var response = req.CreateResponse(
                 HttpStatusCode.InternalServerError);
 
             await response.WriteStringAsync(
-                $"Error retrieving documents: {ex.Message}");
+                "Error retrieving documents.");
 
             return response;
         }
     }
 
+    // GET /api/documents/download/{fileName}
     [Function("DownloadStaffDocument")]
     public async Task<HttpResponseData> DownloadStaffDocument(
         [HttpTrigger(
@@ -250,7 +254,13 @@ public class DocumentFunctions
         {
             fileName = Path.GetFileName(fileName);
 
-            var stream =
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return req.CreateResponse(
+                    HttpStatusCode.BadRequest);
+            }
+
+            using var stream =
                 await _documentFileService.DownloadAsync(fileName);
 
             var response = req.CreateResponse(
@@ -279,13 +289,74 @@ public class DocumentFunctions
 
             return response;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             var response = req.CreateResponse(
                 HttpStatusCode.InternalServerError);
 
             await response.WriteStringAsync(
-                $"Error downloading document: {ex.Message}");
+                "Error downloading document.");
+
+            return response;
+        }
+    }
+
+    // DELETE /api/documents/{fileName}
+    // Gateway restricts this endpoint to Admin and Staff.
+    [Function("DeleteStaffDocument")]
+    public async Task<HttpResponseData> DeleteStaffDocument(
+        [HttpTrigger(
+            AuthorizationLevel.Anonymous,
+            "delete",
+            Route = "documents/{fileName}")]
+        HttpRequestData req,
+        string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName == "." ||
+            fileName == ".." ||
+            Path.GetFileName(fileName) != fileName)
+        {
+            var badRequest = req.CreateResponse(
+                HttpStatusCode.BadRequest);
+
+            await badRequest.WriteStringAsync(
+                "A valid file name is required.");
+
+            return badRequest;
+        }
+
+        try
+        {
+            var deleted =
+                await _documentFileService.DeleteAsync(fileName);
+
+            if (!deleted)
+            {
+                var notFound = req.CreateResponse(
+                    HttpStatusCode.NotFound);
+
+                await notFound.WriteStringAsync(
+                    "Document not found.");
+
+                return notFound;
+            }
+
+            var response = req.CreateResponse(
+                HttpStatusCode.OK);
+
+            await response.WriteStringAsync(
+                $"Document '{fileName}' deleted successfully.");
+
+            return response;
+        }
+        catch (Exception)
+        {
+            var response = req.CreateResponse(
+                HttpStatusCode.InternalServerError);
+
+            await response.WriteStringAsync(
+                "Error deleting document.");
 
             return response;
         }

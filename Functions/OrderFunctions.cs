@@ -146,9 +146,6 @@ public class OrderFunctions
                 "placement according to the configured queue settings.",
                 orderId);
 
-            // Rethrow so Azure Functions detects the failure.
-            // Failed messages are retried and can eventually be
-            // moved to order-processing-queue-poison.
             throw;
         }
     }
@@ -192,4 +189,77 @@ public class OrderFunctions
 
         return response;
     }
+
+    // HTTP endpoint: Update an existing order's status
+    [Function("UpdateOrderStatus")]
+    public async Task<HttpResponseData> UpdateOrderStatus(
+        [HttpTrigger(
+            AuthorizationLevel.Anonymous,
+            "put",
+            Route = "orders/status")] HttpRequestData req)
+    {
+        UpdateOrderStatusRequest? request;
+
+        try
+        {
+            request =
+                await JsonSerializer.DeserializeAsync<UpdateOrderStatusRequest>(
+                    req.Body,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Invalid order status update JSON.");
+
+            return req.CreateResponse(HttpStatusCode.BadRequest);
+        }
+
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.Date) ||
+            string.IsNullOrWhiteSpace(request.OrderId) ||
+            string.IsNullOrWhiteSpace(request.Status))
+        {
+            return req.CreateResponse(HttpStatusCode.BadRequest);
+        }
+
+        var updated = await _storage.UpdateStatusAsync(
+            request.Date,
+            request.OrderId,
+            request.Status);
+
+        if (!updated)
+        {
+            return req.CreateResponse(HttpStatusCode.NotFound);
+        }
+
+        _logger.LogInformation(
+            "Order {OrderId} status updated to {Status}.",
+            request.OrderId,
+            request.Status);
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+
+        await response.WriteAsJsonAsync(new
+        {
+            request.OrderId,
+            request.Date,
+            request.Status,
+            message = "Order status updated successfully."
+        });
+
+        return response;
+    }
+}
+
+// Request model for updating an order's status
+public class UpdateOrderStatusRequest
+{
+    public string Date { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
 }

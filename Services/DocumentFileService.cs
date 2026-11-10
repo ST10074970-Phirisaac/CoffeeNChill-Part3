@@ -1,4 +1,5 @@
-﻿using Azure;
+﻿
+using Azure;
 using Azure.Storage.Files.Shares;
 using Azure.Storage.Files.Shares.Models;
 
@@ -26,12 +27,15 @@ public class DocumentFileService
         _shareClient.CreateIfNotExists();
     }
 
+    // Upload a staff document
     public async Task UploadAsync(
         string fileName,
         Stream fileStream)
     {
         var rootDirectory =
             _shareClient.GetRootDirectoryClient();
+
+        fileName = Path.GetFileName(fileName);
 
         var fileClient =
             rootDirectory.GetFileClient(fileName);
@@ -47,6 +51,7 @@ public class DocumentFileService
         await fileClient.UploadAsync(memoryStream);
     }
 
+    // List all staff documents
     public async Task<List<ShareFileItem>> ListAsync()
     {
         var rootDirectory =
@@ -65,8 +70,11 @@ public class DocumentFileService
         return files;
     }
 
+    // Download a staff document
     public async Task<Stream> DownloadAsync(string fileName)
     {
+        fileName = Path.GetFileName(fileName);
+
         var rootDirectory =
             _shareClient.GetRootDirectoryClient();
 
@@ -83,5 +91,28 @@ public class DocumentFileService
         memoryStream.Position = 0;
 
         return memoryStream;
+    }
+
+    // Delete a staff document
+    public async Task<bool> DeleteAsync(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new ArgumentException(
+                "File name cannot be empty.",
+                nameof(fileName));
+        }
+
+        fileName = Path.GetFileName(fileName);
+
+        var rootDirectory =
+            _shareClient.GetRootDirectoryClient();
+
+        var fileClient =
+            rootDirectory.GetFileClient(fileName);
+
+        var result = await fileClient.DeleteIfExistsAsync();
+
+        return result.Value;
     }
 }

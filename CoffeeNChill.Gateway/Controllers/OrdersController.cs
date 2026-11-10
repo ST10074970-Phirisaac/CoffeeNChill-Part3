@@ -15,6 +15,13 @@ public sealed class QueueOrderRequest
     public DateTimeOffset? OrderTimestamp { get; set; }
 }
 
+public sealed class UpdateOrderStatusRequest
+{
+    public string Date { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}
+
 [ApiController]
 [Route("api/orders")]
 [Authorize]
@@ -53,31 +60,16 @@ public class OrdersController : ControllerBase
                 order,
                 HttpContext.RequestAborted);
 
-            var content = await response.Content.ReadAsStringAsync(
-                HttpContext.RequestAborted);
-
-            return new ContentResult
-            {
-                Content = content,
-                ContentType = response.Content.Headers.ContentType?.ToString()
-                              ?? "application/json",
-                StatusCode = (int)response.StatusCode
-            };
+            return await ForwardResponse(response);
         }
         catch (HttpRequestException)
         {
-            return StatusCode(502, new
-            {
-                message = "Azure Functions service is unavailable."
-            });
+            return ServiceUnavailable();
         }
         catch (OperationCanceledException)
             when (!HttpContext.RequestAborted.IsCancellationRequested)
         {
-            return StatusCode(504, new
-            {
-                message = "Azure Functions service timed out."
-            });
+            return ServiceTimedOut();
         }
     }
 
@@ -106,31 +98,87 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            var content = await response.Content.ReadAsStringAsync(
-                HttpContext.RequestAborted);
-
-            return new ContentResult
-            {
-                Content = content,
-                ContentType = response.Content.Headers.ContentType?.ToString()
-                              ?? "application/json",
-                StatusCode = (int)response.StatusCode
-            };
+            return await ForwardResponse(response);
         }
         catch (HttpRequestException)
         {
-            return StatusCode(502, new
-            {
-                message = "Azure Functions service is unavailable."
-            });
+            return ServiceUnavailable();
         }
         catch (OperationCanceledException)
             when (!HttpContext.RequestAborted.IsCancellationRequested)
         {
-            return StatusCode(504, new
+            return ServiceTimedOut();
+        }
+    }
+
+    // PUT /api/orders/status
+    // Only Admin and Staff can update an order's status.
+    [HttpPut("status")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<IActionResult> UpdateOrderStatus(
+        [FromBody] UpdateOrderStatusRequest request)
+    {
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.Date) ||
+            string.IsNullOrWhiteSpace(request.OrderId) ||
+            string.IsNullOrWhiteSpace(request.Status))
+        {
+            return BadRequest(new
             {
-                message = "Azure Functions service timed out."
+                message = "Date, order ID and status are required."
             });
         }
+
+        var client = _httpClientFactory.CreateClient("AzureFunctions");
+
+        try
+        {
+            using var response = await client.PutAsJsonAsync(
+                "api/orders/status",
+                request,
+                HttpContext.RequestAborted);
+
+            return await ForwardResponse(response);
+        }
+        catch (HttpRequestException)
+        {
+            return ServiceUnavailable();
+        }
+        catch (OperationCanceledException)
+            when (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return ServiceTimedOut();
+        }
+    }
+
+    private async Task<IActionResult> ForwardResponse(
+        HttpResponseMessage response)
+    {
+        var content = await response.Content.ReadAsStringAsync(
+            HttpContext.RequestAborted);
+
+        return new ContentResult
+        {
+            Content = content,
+            ContentType = response.Content.Headers.ContentType?.ToString()
+                          ?? "application/json",
+            StatusCode = (int)response.StatusCode
+        };
+    }
+
+    private ObjectResult ServiceUnavailable()
+    {
+        return StatusCode(502, new
+        {
+            message = "Azure Functions service is unavailable."
+        });
+    }
+
+    private ObjectResult ServiceTimedOut()
+    {
+        return StatusCode(504, new
+        {
+            message = "Azure Functions service timed out."
+        });
     }
 }

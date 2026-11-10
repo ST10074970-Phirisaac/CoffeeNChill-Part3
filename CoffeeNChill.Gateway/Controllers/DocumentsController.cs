@@ -17,6 +17,7 @@ public class DocumentsController : ControllerBase
         _httpClientFactory = httpClientFactory;
     }
 
+    // GET /api/documents
     [HttpGet]
     public async Task<IActionResult> ListDocuments()
     {
@@ -41,11 +42,11 @@ public class DocumentsController : ControllerBase
         }
     }
 
+    // POST /api/documents/upload
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> UploadDocument(
-        IFormFile file)
+    public async Task<IActionResult> UploadDocument(IFormFile file)
     {
         if (file is null || file.Length == 0)
         {
@@ -67,7 +68,6 @@ public class DocumentsController : ControllerBase
 
         using var form = new MultipartFormDataContent();
         await using var stream = file.OpenReadStream();
-
         using var fileContent = new StreamContent(stream);
 
         if (!string.IsNullOrWhiteSpace(file.ContentType))
@@ -77,7 +77,10 @@ public class DocumentsController : ControllerBase
                     file.ContentType);
         }
 
-        form.Add(fileContent, "file", Path.GetFileName(file.FileName));
+        form.Add(
+            fileContent,
+            "file",
+            Path.GetFileName(file.FileName));
 
         try
         {
@@ -99,6 +102,7 @@ public class DocumentsController : ControllerBase
         }
     }
 
+    // GET /api/documents/download/{fileName}
     [HttpGet("download/{fileName}")]
     public async Task<IActionResult> DownloadDocument(string fileName)
     {
@@ -131,6 +135,52 @@ public class DocumentsController : ControllerBase
                 bytes,
                 "application/octet-stream",
                 Path.GetFileName(fileName));
+        }
+        catch (HttpRequestException)
+        {
+            return BadGateway();
+        }
+        catch (OperationCanceledException)
+            when (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return GatewayTimeout();
+        }
+    }
+
+    // DELETE /api/documents/{fileName}
+    // Admin and Staff only
+    [HttpDelete("{fileName}")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<IActionResult> DeleteDocument(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName == "." ||
+            fileName == "..")
+        {
+            return BadRequest(new
+            {
+                message = "A valid file name is required."
+            });
+        }
+
+        var client = _httpClientFactory.CreateClient("AzureFunctions");
+
+        try
+        {
+            using var response = await client.DeleteAsync(
+                "api/documents/" +
+                Uri.EscapeDataString(fileName),
+                HttpContext.RequestAborted);
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return NotFound(new
+                {
+                    message = "Document not found."
+                });
+            }
+
+            return await ForwardResponseAsync(response);
         }
         catch (HttpRequestException)
         {
