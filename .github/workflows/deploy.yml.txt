@@ -2,7 +2,7 @@ name: Build, Push, and Deploy to VPS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "chenge-part3" ]
 
 jobs:
   build-and-deploy:
