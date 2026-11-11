@@ -3,6 +3,9 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS installer-env
 WORKDIR /src
 COPY . /src/dotnet-function-app
 RUN cd /src/dotnet-function-app && \
+    # Clean out any local Windows build artifacts
+    rm -rf obj bin && \
+    mkdir -p /home/site/wwwroot && \
     dotnet publish CoffeeNChill.Functions.csproj --output /home/site/wwwroot
 
 # Stage 2: Runtime
