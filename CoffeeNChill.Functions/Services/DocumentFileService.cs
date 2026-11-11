@@ -10,78 +10,53 @@ public class DocumentFileService
 
     public DocumentFileService()
     {
-        var connectionString =
-            Environment.GetEnvironmentVariable("AzureFilesConnection");
-
+        var connectionString = Environment.GetEnvironmentVariable("AzureFilesConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException(
-                "AzureFilesConnection is not configured.");
-        }
+            throw new InvalidOperationException("AzureFilesConnection is not configured.");
 
-        _shareClient = new ShareClient(
-            connectionString,
-            "staff-docs");
-
+        _shareClient = new ShareClient(connectionString, "staff-docs");
         _shareClient.CreateIfNotExists();
     }
 
-    public async Task UploadAsync(
-        string fileName,
-        Stream fileStream)
+    public async Task UploadAsync(string fileName, Stream fileStream)
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
-
-        var fileClient =
-            rootDirectory.GetFileClient(fileName);
-
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
         using var memoryStream = new MemoryStream();
-
         await fileStream.CopyToAsync(memoryStream);
-
         memoryStream.Position = 0;
-
         await fileClient.CreateAsync(memoryStream.Length);
-
         await fileClient.UploadAsync(memoryStream);
     }
 
     public async Task<List<ShareFileItem>> ListAsync()
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
-
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
         var files = new List<ShareFileItem>();
-
         await foreach (var item in rootDirectory.GetFilesAndDirectoriesAsync())
         {
-            if (item.IsDirectory != true)
-            {
-                files.Add(item);
-            }
+            if (item.IsDirectory != true) files.Add(item);
         }
-
         return files;
     }
 
     public async Task<Stream> DownloadAsync(string fileName)
     {
-        var rootDirectory =
-            _shareClient.GetRootDirectoryClient();
-
-        var fileClient =
-            rootDirectory.GetFileClient(fileName);
-
-        var download =
-            await fileClient.DownloadAsync();
-
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
+        var download = await fileClient.DownloadAsync();
         var memoryStream = new MemoryStream();
-
         await download.Value.Content.CopyToAsync(memoryStream);
-
         memoryStream.Position = 0;
-
         return memoryStream;
+    }
+
+    // ADDED THIS METHOD:
+    public async Task<bool> DeleteAsync(string fileName)
+    {
+        var rootDirectory = _shareClient.GetRootDirectoryClient();
+        var fileClient = rootDirectory.GetFileClient(fileName);
+        var response = await fileClient.DeleteIfExistsAsync();
+        return response.Value;
     }
 }

@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Text.Json;
 using CoffeeNChill.Functions.Models;
@@ -227,12 +226,13 @@ public class OrderFunctions
             return req.CreateResponse(HttpStatusCode.BadRequest);
         }
 
-        var updated = await _storage.UpdateStatusAsync(
+        var updatedEntity = await _storage.UpdateStatusAsync(
             request.Date,
             request.OrderId,
             request.Status);
 
-        if (!updated)
+        // FIXED: Check if the entity returned is null
+        if (updatedEntity is null)
         {
             return req.CreateResponse(HttpStatusCode.NotFound);
         }
