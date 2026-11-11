@@ -103,7 +103,7 @@ A GitHub Actions workflow (`.github/workflows/deploy.yml`) is configured. On eve
 | POST | `/api/auth/register` | Register user | No |
 | POST | `/api/auth/login` | Login and get JWT | No |
 
-The app is available at http://localhost:5000/swagger.
+The app is available at http://172.209.208.71:5000/swagger/index.html
 
 🧪 <ins>Testing and Verification</ins>
 The application was tested using Postman, Swagger and Docker.
@@ -141,7 +141,7 @@ YouTube demonstration: https://youtu.be/j3nFka2284I
 AI (specifically, an AI assistant) was used to troubleshoot and assist with the configuration of the CI/CD pipeline (GitHub Actions), Dockerfile setups, and VPS deployment troubleshooting. The core application logic, API architecture, and database operations were written by the team.
 
 📚 <ins>References</ins>
-Isaac
+Isaac:
 Azure Functions, queue processing, retries and error handling
 
 Microsoft (n.d.) Azure Queue storage trigger for Azure Functions. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-trigger
@@ -154,7 +154,7 @@ Microsoft (n.d.) Guide for running C# Azure Functions in the isolated worker mod
 
 Microsoft (n.d.) Monitoring Azure Functions. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-monitoring
 
-Chenge
+Chenge:
 Docker, containerisation, networking and persistence
 
 Docker Inc. (n.d.) Docker Compose documentation. Available at: https://docs.docker.com/compose/
@@ -167,7 +167,7 @@ Docker Inc. (n.d.) Docker image push. Available at: https://docs.docker.com/refe
 
 Microsoft (n.d.) Use the Azurite emulator for local Azure Storage development. Available at: https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite
 
-Taahir
+Taahir:
 API development, Azure Storage and Postman testing
 
 Microsoft (n.d.) Azure Functions HTTP trigger. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger
