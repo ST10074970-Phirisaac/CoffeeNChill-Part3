@@ -103,16 +103,9 @@ A GitHub Actions workflow (`.github/workflows/deploy.yml`) is configured. On eve
 | POST | `/api/auth/register` | Register user | No |
 | POST | `/api/auth/login` | Login and get JWT | No |
 
-💻 Local Development
+The app is available at http://localhost:5000/swagger.
 
-Prerequisites: .NET 8 SDK, Azure Functions Core Tools v4, Docker Desktop, Postman, Git.
-
-To run locally using Docker Compose:
-```powershell
-docker compose up -d --build
-
-🧪 Testing and Verification
-
+🧪 <ins>Testing and Verification</ins>
 The application was tested using Postman, Swagger and Docker.
 
 Test	Result
@@ -124,8 +117,7 @@ JWT Login and RBAC	Passed
 Queue retry and poison queue	Tested successfully
 Docker Compose startup	Passed
 CI/CD Deployment to VPS	Passed
-📝 Part 3 Changelog
-
+📝 <ins>Part 3 Changelog</ins>
 Added API Gateway with JWT authentication and RBAC.
 
 Added Gateway Controllers (Auth, Menu, Orders, Documents, Health).
@@ -142,16 +134,13 @@ Configured GitHub Actions CI/CD pipeline to deploy to a Linux VPS.
 
 Updated README with architecture and security details.
 
-🎥 Project Demonstration
-
+🎥 <ins>Project Demonstration</ins>
 YouTube demonstration: https://youtu.be/j3nFka2284I
 
-🤖 AI Declaration
-
+🤖 <ins>AI Declaration</ins>
 AI (specifically, an AI assistant) was used to troubleshoot and assist with the configuration of the CI/CD pipeline (GitHub Actions), Dockerfile setups, and VPS deployment troubleshooting. The core application logic, API architecture, and database operations were written by the team.
 
-📚 References
-
+📚 <ins>References</ins>
 Isaac
 Azure Functions, queue processing, retries and error handling
 
