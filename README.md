@@ -110,3 +110,83 @@ Prerequisites: .NET 8 SDK, Azure Functions Core Tools v4, Docker Desktop, Postma
 To run locally using Docker Compose:
 ```powershell
 docker compose up -d --build
+
+🧪 Testing and Verification
+
+The application was tested using Postman, Swagger and Docker.
+
+Test	Result
+Retrieve menu items via Gateway	Passed — HTTP 200
+Submit valid order	Passed — HTTP 202
+Retrieve processed order	Passed — HTTP 200
+Reject invalid order	Passed — HTTP 400
+JWT Login and RBAC	Passed
+Queue retry and poison queue	Tested successfully
+Docker Compose startup	Passed
+CI/CD Deployment to VPS	Passed
+📝 Part 3 Changelog
+
+Added API Gateway with JWT authentication and RBAC.
+
+Added Gateway Controllers (Auth, Menu, Orders, Documents, Health).
+
+Added missing Functions endpoints (PUT /api/orders/status, DELETE /api/documents/{fileName}).
+
+Created Dockerfile for Gateway and Functions.
+
+Updated docker-compose.yml to include Gateway, Azurite, and Functions.
+
+Exposed only port 5000 to the public.
+
+Configured GitHub Actions CI/CD pipeline to deploy to a Linux VPS.
+
+Updated README with architecture and security details.
+
+🎥 Project Demonstration
+
+YouTube demonstration: https://youtu.be/j3nFka2284I
+
+🤖 AI Declaration
+
+AI (specifically, an AI assistant) was used to troubleshoot and assist with the configuration of the CI/CD pipeline (GitHub Actions), Dockerfile setups, and VPS deployment troubleshooting. The core application logic, API architecture, and database operations were written by the team.
+
+📚 References
+
+Isaac
+Azure Functions, queue processing, retries and error handling
+
+Microsoft (n.d.) Azure Queue storage trigger for Azure Functions. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-trigger
+
+Microsoft (n.d.) Azure Functions error handling and retries. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-error-pages
+
+Microsoft (n.d.) Azure Functions host.json reference. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-host-json
+
+Microsoft (n.d.) Guide for running C# Azure Functions in the isolated worker model. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/dotnet-isolated-process-guide
+
+Microsoft (n.d.) Monitoring Azure Functions. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-monitoring
+
+Chenge
+Docker, containerisation, networking and persistence
+
+Docker Inc. (n.d.) Docker Compose documentation. Available at: https://docs.docker.com/compose/
+
+Docker Inc. (n.d.) Networking in Compose. Available at: https://docs.docker.com/compose/how-tos/networking/
+
+Docker Inc. (n.d.) Volumes. Available at: https://docs.docker.com/engine/storage/volumes/
+
+Docker Inc. (n.d.) Docker image push. Available at: https://docs.docker.com/reference/cli/docker/image/push/
+
+Microsoft (n.d.) Use the Azurite emulator for local Azure Storage development. Available at: https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite
+
+Taahir
+API development, Azure Storage and Postman testing
+
+Microsoft (n.d.) Azure Functions HTTP trigger. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger
+
+Microsoft (n.d.) Azure Table Storage documentation. Available at: https://learn.microsoft.com/en-us/azure/storage/tables/
+
+Microsoft (n.d.) Azure Queue storage trigger and bindings overview. Available at: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue
+
+Postman (n.d.) Test your API using the Collection Runner. Available at: https://learning.postman.com/docs/collections/running-collections/intro-to-collection-runs/
+
+Postman (n.d.) Write scripts to test API response data in Postman. Available at: https://learning.postman.com/docs/tests-and-scripts/write-scripts/test-scripts/
